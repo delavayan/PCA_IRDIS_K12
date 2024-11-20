@@ -13,7 +13,7 @@ Centrage science pendant pca:
 Ce critère est trop peu restrictif.
 
 Bibliothèque de master / raw: 
-  -En général les résultats sont les mêmes. Ce n'est pas le cas pour AB aurigae de 16s, l'utilisation de raw donne de meilleurs résultats.
+  -En général les résultats sont les mêmes. Ce n'est pas le cas pour AB aurigae de 16s, l'utilisation de raw donne des meilleurs résultats.
   Tester plusieurs images de court temps d'exposition, Trier les fichiers 64s raw (idéalement tous les fichiers raw mais il y en a ~1200).
 
 Détermination de la zone de signal d'étoile:
