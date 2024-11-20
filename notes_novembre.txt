@@ -1,7 +1,7 @@
 Mise dans la même base: 
   - Établir la bibliothèque des ciels noND triés
-  - Un critère qui empêcherait d'ajouter les ciels de temps d'exposition beaucoup plus petits que le temps d'exposition de la science (sinon le bruit est ajouté dans           l'image  réduite).
-  - Gestion des mauvais pixels. Une seule carte des mauvais pixels est utilisée pour toute la bibliothèque des ciels ( au cours du pca les mauvais pixels doivent être mis à     0 dans toutes les images).
+  - Un critère qui empêcherait d'ajouter les ciels de temps d'exposition beaucoup plus petits que le temps d'exposition de la science (sinon le bruit est ajouté dans l'image  réduite).
+  - Gestion des mauvais pixels. Une seule carte des mauvais pixels est utilisée pour toute la bibliothèque des ciels ( au cours du pca les mauvais pixels doivent être mis à 0 dans toutes les images).
   On pourrait créer des cartes qui incluent les mauvais pixels des temps supérieurs  
   ex. Pour la science de 64s: carte obtenue en combinant les cartes de 64s et 96s.
 
@@ -9,7 +9,7 @@ Gestion de mauvais pixels:
   - remplaces les mauvais pixels dans l'image réduit par les mauvais pixels de ( science - moyenne des ciels les plus proches )
 
 Centrage science pendant pca:
-  - Critère actuel (nombre de sky n est tel que:  std dev (médianes des carrés 50x50px d'image finale obtenu avec n sky) * 1.8 < std dev (médianes des carrés 50x50px           d'image finale obtenu avec n+1 sky) . Ce critère est trop peu restrictif.
+  - Critère actuel (nombre de sky n est tel que:  std dev (médianes des carrés 50x50px d'image finale obtenu avec n sky) * 1.8 < std dev (médianes des carrés 50x50px d'image finale obtenu avec n+1 sky) . Ce critère est trop peu restrictif.
 
 Bibliothèque de master / raw: 
   -En général les résultats sont les mêmes. Ce n'est pas le cas pour AB aurigae de 16s, l'utilisation de raw donne de meilleurs résultats.
