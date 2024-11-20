@@ -1397,8 +1397,8 @@ def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff,mean_n):  #M_sky (nb sky
 
     
     alpha=np.nanmean( image_science / F_mean_sky )
-    F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
-    image_science_cent= image_science  - alpha * F_mean_science #centers science (only few first skies are sufficiently compatible to center science on 0)
+    #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
+    image_science_cent= image_science  - alpha * F_mean_sky #centers science (only few first skies are sufficiently compatible to center science on 0)
 
 
     
