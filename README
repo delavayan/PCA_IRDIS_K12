@@ -1,0 +1,177 @@
+Introduction
+
+The aim of this work is to enable accurate background subtraction for science DBI images acquired using the K_12 filter on the IRDIS instrument.
+This process exclusively utilizes master sky files, as dark images exhibit an intensity profile that is inconsistent with science images, 
+with a nonlinear intensity variation depending on pixel location. Flat-field images are not included in this pipeline.
+
+Several approaches can be employed, which results relative quality vary with each specific science image:
+
+(1) simple subtraction of master sky taken at the same date as science. This method is generally inadequate due to the low SNR
+(2) subtracting a combinasion of several rescaled skies (may not be taken at the same date). Coefficients of scale are calculated for each column of the sky image.
+This approach can provide satisfactory results if a sufficient number (typically more than 4) of sky files closely matching the intensity profile of the science image are available.
+(3) subtracting a reconstructed sky obtained with PCA (principal components analysis) adapted to science. Only the first few principal components (commonly 5 to 10) are used. 
+Projection coefficients are determined by projecting the background region of the science image (excluding star pixels) onto the principal components.
+
+Methods (2) and (3) can produce comparable results, depending on the quality of suitable sky images.
+
+
+
+
+Directory structure
+
+exe file.py is executing main function which carry out reduction. 
+Code performing rescaling and PCA is included in the main function: main should be modified in order to change the method of reduction. Unused method code is marked with quotes or hashtags.
+
+functions.py contains fonctions used for reduction alled by main. They are imported in exe file.py . 
+If you are adding a function to functions.py you should add its name to the exe file.py  "import from fonctions" line. 
+The file should be saved before launching exe file.py.
+
+The "raw" folder should contain all sky and science files required for reduction. 
+Two types of sky images can be used: raw sky images or master sky images, obtained by avreaging 3-4 raw sky images .
+Further investigation is needed, particularly for images with short exposure times, to determine whether using raw sky images can yield significantly better results compared to master sky images.
+Sky collection should be filtered to exclude images with defects, such as the presence of secondary sources.
+
+The reduced images will be saved in the "results" folder.
+
+The pipeline includes creation of 1s and 0s matrix determining the region of star and background signal. This image is saved in the "zone" folder.
+
+"bad pixels map" folder should contain one bad pixel map used for the bad pixels replacement of all files. 
+For efficient PCA bad pixels map should contain bad pixels from all skies (exhaustif map can be created with create_new_bdpx_map).
+
+"__pycache__" folder should be conserved in order to ameliorate execution time.
+
+
+
+Launching
+
+To test whether the program runs correctly you should launch the exe file.py. The initial raw file contains around 800 sky files of different exposure time and science files () of exposure time 64 s.
+
+
+PCA discription
+
+PCA code is contained in the main function in exe file.py.
+In order to extract data cubes from the raw folder you can either use cubes_extraction_exptime, extracting only the images of the same exposure time as science,
+or cubes_extraction_all, extracting all images and normalizing them to the same base using the formula: (sky_time−sky_pose)/(time−0.83).
+In the second case bad pixel map should be adapted to list of sky images used for reduction.
+Sky images used in this case  are usually of the same or higher exposure time than science, due to lower SNR in higher exposure time images.
+ 
+If proceeding to reduction of the same science a few times, it is less time-consuming to conserve the list of sorted sky files names and use the function SCIENCE(SKY)_cubes_extraction_list.
+Some skies are very different from science (in terms of intensity profile) so only a part of the sky files library is used for the reduction.
+This quantity should be grater than 50 images, but exceeding 3/4 of all images of same exposure time can degradate the results (parameter n_cubes fixes sky images number). 
+Larger numbers can be used in case of raw sky libery as libery is about 3 times bigger.
+To determinete which sky files are the best adapted ones the resemblance to science is evaluated by get_sorted_sky_list which returns sorted sky cubes (the best at the beginning of the list).
+Resemblance parameters must be calculated only in the zone not containing the star signal: for this reason the 0,1 matrix (background : 1, star signal: 0) is first created.
+The zone matrix is obtained by evaluation of intensity of the first, roughly approximated reduced image, which is science - mean (n skies), n~3.
+Skies must be acceptably well adapted to science (even if these are not the best one): they are obtained after sorting sky files on the approximating zone of circle star zone of r=250.
+Zone appproximation and sorting is then effectuated two times during first launch.
+
+During PCA performance, principal components are calculated from some of the sky images: 
+Components are obtained by normalization of eigenvectors of the covariance matrix of the skies dataset.
+First components contain the most pertinent information and further components carry increasing quantities of photon noise. 
+Science is projected on only a few first components (usually from 2 to 5: using a large number of components may result in fitting noise present in the science image).
+Reconstructed sky image is then obtained by multiplication of first principal components by coefficients of projection. 
+PCA may be performed on one whole image ( K1 and K2 separately) or on the slices ( vertical rectangular or triangular) of a divided image. Division is defined by parameter type_div in main.
+Rectangular division gives mostly better final results than PCA on whole image/triangles (as residuals are usually of vertical form). 
+Skies obtained with PCA on images of different divisions may be averaged: these reduce residuals as different divisions implies diffrents kinds of residual patterns.
+Currently only sliding rectangle division is an option as this type of reduction was giving the best results.
+
+Margins (area about 40-80 px from border of the science image) are presenting more important inetensity variations than the center area (form image to image).
+They have to be excluded from the principal pca process - they can be either replaced by nans or pca can be effectueted on these areas independently of the center area.
+
+
+Finally, vertical rescaling of reconstructed sky may ameliorate final results.
+
+In points:
+1. science, skies extraction
+2. approximative zone  matrix creation
+3. approximative sorting of sky images
+4. creation of final zone matrix 
+5. final sorting of sky images 
+6. creation of reconstructed sky with PCA 
+7. subtraction of reconstructed sky from science
+
+
+Rescaling discription
+
+Rescaling code is contained in the main function in exe file.py (marked with quotes).
+Only a few best adapted sky files can be used. You can either place them with science in the "raw" folder or place all sky library and science in "raw" 
+and  sort sky cubes: only a small number (nb_sky) of the first cubes of the sorted list will be used.
+Each sky is then rescaled to science in order to match the condition science(x)-coeff(x)*sky(x)=0 in the background zone, impying null median for each column.
+Background zone determination process is the same as for PCA. Reconstructed sky is obtained by calculating a mean of obtained skies. 
+
+
+
+
+Functions discription 
+
+More detailed descriptions are presented in functions.py 
+ 
+collect_header
+	Returns header and object name collected from one of the science files placed in "raw"
+
+cubes_extraction_all and cubes_extraction_exptime
+	Extract files from "raw" directory, both science and sky. 
+	Recognition of the file is effectuated by checking "ESO DPR TYPE" ( "OBJECT" for science, keyword doesn't exist for master skies).
+	Cubes are compressed by mean or median calculation: 3D matrices are compressed to 2D, science cubes from different files are compressed to one 2D matrix.
+	Bad pixels from the provided map are set to 0 (not NaNs as it unables PCA).
+	cubes_extraction_exptime extracts only sky images of the same exposure time (raw directory may contain images of diffrent times).
+	cubes_extraction_all extracts all images and normalise them to the same base 1s.
+
+SCIENCE_cubes_extraction_list and SKY_cubes_extraction_list
+	Extract cubes from files whose names are registered in the list. 
+	The list is obtained with get_sorted_sky_list so extraction from the list is possible only if you have already done at least 1 reduction.
+	The sky extraction list should contain names of skies ordered by the criterion of resemblance of science.
+	Cubes are compressed by mean or median calculation: 3D matrices are compressed to 2D, science cubes from different files are compressed to one 2D matrix.
+	Bad pixels from the provided map are set to 0.
+
+get_zone2
+	Used to create a first approximatif zone matrix.
+	Creates a 1 and 0 matrix of a star signal zone for both K1 or K2 at one time. 
+	0 = star signal, 1 = background signal.
+
+get_sorted_sky_list
+	Sorts sky matrices by the criterion of resemblance with science matrix (in the background zone): 
+	either sum of pixels norm  ("square"), standard deviation of the pixels norm ("std") or median of pixels ("med") of science-sky.
+	Returns sorted cubes and list of corresponding files names (can be used for extraction from list).
+	
+zone_by_dispertion
+	Creates a final zone 0s/1s matrix (0 = star signal, 1 = background signal).
+	First a mean of few well adapted skies is subtracted from science. One such a reduced matrix is then applied to a low-pass filter.
+	Standard deviation is calculated in the background zone of the matrix (very approximative).
+	Star signal is determined by pixels of intensity > 5 std dev. 
+	Central star signal is approximated by a circle, whose radius has to fulfill the condition: a defined fraction of a ring at a given r from distance should be 1 and not 0.
+	This can be obtained by setting the fraction parameter to 0.7-0.9. 
+	0.75 is choosed: further from the center some background signal may be present, manipulating the resulting radius.
+	Obtained radius has to be multiplied by constant or variant factor. Factor varying with r seems to be best fitting tested datasets (factor is defined by increasing linear function).
+	As appling same parameters for K1 and K2 filters doesn't give correct radius values for both images, we chose to define K2 radius as a fraction of K1 radius (0.75-0.85).
+	This could be further ameliorated as this fraction is varing slightly depending on science.
+	Final zone matrix is either a 0s circle recombined with a matrix of > 5 std dev condition or of more restricting condition (currently > 6 std dev).
+	Appling quite small or high std dev condition is not recommended. 
+	This is due to the fact that some background signal is included when applying a low limit, but too high limit may imply omitting some stellar objects present in the marginal region.
+	
+
+rescaling
+	Effectuates rescaling of the sky matrix column by column only in the background signal region.
+
+exe_pca
+	Effectuates reduction by PCA on either K1 or K2 in the zone defined by coordinates start_x, end_x, start_y, end_y. Takes sorted sky cubes, science and zone matrices at the input. 
+	n_cubes defines the number of cubes used for PC's calculation: it is usually best not to use all skies but around 50-70% (depending on library dimension and science).
+	n_comp is a number of components conserved. Should be relatively small (2-5) as further components contain mostly photon noise and very little signal.
+	Using a large number of components carries the risk of fitting photon noise to science.
+
+	Sky matrix and science have to be centered before efffectuating pca: sky matrix is centered by the mean of all sky images. 
+	Science is centered by the mean of only few best adapted sky images. The quality of final results often depend on the number of images used for centring science,
+	In the case of absence of well adapted skies only one image can be used, this gives results similar to direct substraction of this sky image.
+	The number of used sky images (n_mean) can be evaluated by setting select auto to True.  
+
+	Components are eigenvectors of the covariance matrix of flattened sky images matrix.
+	Projection coefficient calculated on the background zone has to be rescaled to match the whole image. This is done by setting type_coeff to either "norm" or "mean" 
+	(mean: PC norme is obtain by a sum of the average squared value of a pixel, norm: is obtain by a sum of the square of each pixel).
+	PCA can be performed either on the whole image or on its slices, triangles or vertical rectangles (parameter type_div). 
+	PCA of divided image gives generally better results, especially if division is rectangular: residuals are often of rectangular pattern.
+	As residuals of images obtained by different divisions are not located in exactly the same spots it may be advantageous to produce a sky by compression of reconstructed skies of different divisions (you can use mean_result_files).
+	Division type "sliding rect" includes calculation of PCA on rectangles that are shifted to the right side of the image by one pixel by every loop step.
+	Number of loop steps is equal to the number of pixels of the width of the rectangle.Images obtained at every step are stocked in the list and averaged at the end in order to return a 2D array.
+ 	This method may give slightly better results than previously mentioned.  
+	Two parameters define whether rescaling is performed after PCA: resc_div forces null median of final image on every slice separately; resc_vert forces null median on every column.
+	exe_pca is calling functions pca_sliding_rectangle, pca_triangle, pca_rect which calles division and merge sub-functions, PCA function common for every method.
