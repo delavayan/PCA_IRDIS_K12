@@ -1,5 +1,5 @@
 Mise dans la même base: 
-  - Établir la bibliothèque des ciels noND triés
+  - Établir la bibliothèque des ciels noND triés  
   - Un critère qui empêcherait d'ajouter les ciels de temps d'exposition beaucoup plus petits que le temps d'exposition de la science (sinon le bruit est ajouté dans l'image  réduite).
   - Gestion des mauvais pixels. Une seule carte des mauvais pixels est utilisée pour toute la bibliothèque des ciels ( au cours du pca les mauvais pixels doivent être mis à 0 dans toutes les images).
   On pourrait créer des cartes qui incluent les mauvais pixels des temps supérieurs  
