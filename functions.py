@@ -656,7 +656,7 @@ def cubes_extraction_exptime(compression='mean',bd_subs=False):
     return np.array(cubes),np.array(cubes_science),sky_files_list, science_files_list , False  
 
 
-def SKY_cubes_extraction_list(liste,compression='mean',bd_subs=False,exp_t=False):  #Do not enter bd_subs='yes' for science cubes
+def SKY_cubes_extraction_list(liste,compression='mean', bd_subs=False, exp_t=False):  #Do not enter bd_subs='yes' for science cubes
     """
     Extract cubes from files which names are registered in the list (files should be placed in the raw directory)
     To obtain list use first cubes_extraction_
@@ -668,25 +668,35 @@ def SKY_cubes_extraction_list(liste,compression='mean',bd_subs=False,exp_t=False
     print("Cubes extraction from list")
 
     folder=os.path.dirname(__file__)+'\\raw\\'
+    sky_pose=fits.getdata(os.path.dirname(__file__)+'\sky_pose_083.fits')
     cubes=[]
+    liste_exp = []
+    count=0
     for i in range(0,len(liste)):
+        print(len(liste))
 
         data=fits.getdata(folder+str(liste[i]))
 
         if exp_t==True:
+            print("exptime true")
             header=fits.getheader(folder+str(liste[i]))
-            exp_sc=header['EXPTIME']
+            exp=header['EXPTIME']       #ESO PRO TYPE = 'REDUCED ' pour master sky
+            liste_exp.append(exp)
+            
 
         cubes.append(data)
 
     for j in range(0,len(cubes)):
 
         if compression=='mean':
-            
             cubes[j]=get_compressed_matrix_mean([cubes[j]])
+            if exp_t==True:
+                cubes[j]=(cubes[j]-sky_pose)/(liste_exp[j]-0.83)
 
         elif compression=='median':
             cubes[j]=get_compressed_matrix_median([cubes[j]])
+            if exp_t==True:
+                cubes[j]=(cubes[j]-sky_pose)/(liste_exp[j]-0.83)
 
         if bd_subs and len(os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\'))==1:     #bad pixels substraction from skies. Science bd px substraction is done at the end
             
@@ -1397,6 +1407,7 @@ def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff,mean_n):  #M_sky (nb sky
 
     
     alpha=np.nanmean( image_science / F_mean_sky )
+    #print("ALPHA",alpha)
     #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
     image_science_cent= image_science  - alpha * F_mean_sky #centers science (only few first skies are sufficiently compatible to center science on 0)
 
@@ -1478,8 +1489,8 @@ def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff,mean_n):  #M_sky (nb sky
     plt.xlabel("Indice composante")
     plt.ylabel("Valeur coeff")
     plt.show() """
-    
-    reconstructed = np.dot(np.array(projection_normal).T, V[:n_comp]) + F_mean_science  #Multiplies PC by coefficients and uncenteres
+    #usun
+    reconstructed = np.dot(np.array(projection_normal).T, V[:n_comp]) + F_mean_sky  #Multiplies PC by coefficients and uncenteres
 
     ### Calculs of rescaling coefficiants
     M_coeff=np.zeros(len(im_s))  #first coefficients for each pixels are calculated
@@ -1614,6 +1625,17 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
     #np.insert(cubes, 0 , sky, axis=0)   #usun
     
     science_t=science.copy()
+    #### usun###
+    """print(cubes.shape)
+    F_mean_sky1 = np.nanmean (np.array(cubes),axis=0)
+    F_mean_sky = zone_subs(F_mean_sky1.copy(),zone)
+    science_1 = zone_subs(science_t.copy(),zone)
+    alpha = np.nanmean( science_1 / F_mean_sky )
+    print("ALPHA",alpha)
+    #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
+    science_t= science_t - alpha * F_mean_sky1"""
+    ###################
+    
    
     zone_t=zone.copy()
 
@@ -1715,7 +1737,7 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
     print("PCA finished",filt)
 
     M_sky_combined=get_compressed_matrix_mean(matrices_liste,y=matrices_liste[0].shape[0],x=matrices_liste[0].shape[1])
-    
+    #M_sky_combined =  M_sky_combined - alpha * F_mean_sky1[start_y:end_y].T[start_x:end_x].T #usun
 
     if margins: #pca is effectuated independently on marginal area
         M_sky_combined=margins_pca( M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,start_x,end_x,n_comp,type_coeff, mean_n)
@@ -1845,9 +1867,9 @@ def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,
 
 
 
-def exe_pca( science, zone, cubes_inp, n_comp, start_x, end_x, 
+def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_list, start_x, end_x, 
              start_y, end_y, path_save_sky, path_save_final, header, type_coeff, type_div, n_rect, width_rect, margins, diff_exptime,
-             resc_vert, bd_subs, save_, mean_n, select_auto, step):
+             resc_vert, bd_subs, save_, mean_n, step):
     """Executes PCA.  
     Args: science: 2D array, zone : 2D array     cubes_inp: ordered list of sky images (2D arrays) used for PCA
     n_comp: number of components used for projection coefficients calculation
@@ -1877,11 +1899,7 @@ def exe_pca( science, zone, cubes_inp, n_comp, start_x, end_x,
 
     cubes=cubes_inp.copy()
     ##############################################################
-    if select_auto:   #evaluates the optimal mean_n (number of sky matrices used for centring science) value
-        print('mean_n check')
-        plot_all=True
-        mean_n=centring_science(zone, science, cubes, width_rect, n_comp, bd_subs, resc_vert, start_x, end_x, start_y, end_y, type_coeff, step, mean_n, margins, plot_all, path_save='0',resc=False)
-    
+ 
     if type_div=="sliding_rect":
         
         new_sky_pca_L=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K1', type_coeff,step, mean_n, margins, path_save='0', resc_rect=False)
@@ -1924,8 +1942,7 @@ def exe_pca( science, zone, cubes_inp, n_comp, start_x, end_x,
         
         print("Rescaling by vertical coefficients")
 
-    if save_:  #exptime?
-        fits.writeto(str(path_save_sky),new_sky_pca,overwrite=True)
+    
 
     final_pca=science-new_sky_pca 
 
@@ -1936,8 +1953,13 @@ def exe_pca( science, zone, cubes_inp, n_comp, start_x, end_x,
         final_pca=bd_px_subs_nan(indexes_bd,final_pca) 
     else:
         print("bad pixels are not substracted")
+
     
+    #ajouter if 
+    final_pca, new_sky_pca = badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , header['EXPTIME'])
+
     if save_:
+        fits.writeto(str(path_save_sky),new_sky_pca,overwrite=True)
         fits.writeto(str(path_save_final),final_pca,header,overwrite=True)
 
     print("####### PARAMETRES #######","\n")
@@ -1946,63 +1968,6 @@ def exe_pca( science, zone, cubes_inp, n_comp, start_x, end_x,
     print("\n")
     return final_pca
 
-
-
-def centring_science(zone, science, cubes, width_rect, n_comp, bd_subs, resc_vert, start_x, end_x, start_y, end_y, type_coeff, step, mean_n, margins, plot_all, path_save='0',resc=False):
-    
-    med_val=[]
-    dev_val=[]
-
-    for n in range (1,6): #pca with science cetntered with 1, 2... sky images
-        mean_n=n
-        new_sky_pca_L_0=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K1', type_coeff, step, mean_n, margins, path_save='0')
-        new_sky_pca_R_0=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K2', type_coeff, step, mean_n, margins, path_save='0')
-        new_sky_pca_0=combine_LR(new_sky_pca_L_0,new_sky_pca_R_0)
-
-        if resc_vert:
-            new_sky_pca=rescaling(new_sky_pca_0,science,zone,edge=40)
-
-        final_pca=science-new_sky_pca 
-
-        if bd_subs and len(os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\'))==1:
-            print("bd px subs")
-            bd_px_cube=fits.getdata(os.path.dirname(__file__)+'\\bad pixels map\\'+os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\')[0])
-            indexes_bd=bd_px_index(bd_px_cube)
-            final_pca=bd_px_subs_nan(indexes_bd,final_pca)
-
-        med_val.append(dev_on_subspaces(final_pca,zone)[0]) #median of the 50x50 px cubes in the background zone
-        dev_val.append(dev_on_subspaces(final_pca,zone)[1])
-        print( n, "MED:", med_val[-1])
-        fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/save_sky_hip20'+str(n)+'.fits',new_sky_pca,overwrite=True)
-        fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/save_hip20'+str(n)+'.fits',final_pca,overwrite=True)
-        
-
-    rep=len(med_val)
-    i=0
-    while rep==len(med_val) and i<len(med_val)-1:  
-        #parameter is std dev of medians of cubes 50x50px of reduced science
-        #mean_n will stop incresing if parameter gets 1.8 bigger when the next sky in the sorted list is included in the science centring
-        print("tu", med_val[i], med_val[i+1],1.8*med_val[i] < med_val[i+1])
-        if 1.8*med_val[i] < med_val[i+1]:
-            rep=i
-        i=i+1
-
-    print("selected mean_n (number of sky images used for centering): ", rep)
-
-    if plot_all:    
-        plt.plot([n for n in range(1,len(med_val)+1)],med_val,color='red')   
-        plt.title("Std dev of the medians of  50 x 50 pixels squares in the background zone")
-        plt.xlabel("Number of sky images used for centring science")
-        plt.show()
-
-        plt.plot([n for n in range(1,len(med_val)+1)],dev_val,color='red')
-        plt.xlabel("Number of sky images used for centring science")
-        plt.title("Std dev in the background zone")
-        plt.show()
-
-    return rep
-
-        
 
 def mean_result_files(science,liste_sky,path_save,header=None, bd_subs='yes'):
     """ calculate mean of few  reconstructed sky files and substract it from science
@@ -2032,28 +1997,25 @@ def mean_result_files(science,liste_sky,path_save,header=None, bd_subs='yes'):
     return final_pca
     
 
-def dev_on_subspaces(M_1,zone):
-    M1_s=zone_subs(M_1.copy(),zone)
-    med1=[]
-    flux=[]
-    n=40
-    m=20 #sur y
-    for i in range(0,n):
-        for j in range (0,m):
-            med1.append(np.nanmedian(M1_s[j*int(1024/m):int(1024/m)*(1+j)].T[int(2048/n)*i:int(2048/n)*(i+1)].T))
-            flux.append(np.nansum([a*a for a  in M1_s[j*int(1024/m):int(1024/m)*(1+j)].T[int(2048/n)*i:int(2048/n)*(i+1)].T]))
-    print("M1",np.nanstd(med1))
+def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time):
+    "science is a matrix of final exptime"
+    bd_px_cube=fits.getdata(os.path.dirname(__file__)+'\\bad pixels map\\'+os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\')[0])
+    cory,corx=bd_px_index(bd_px_cube)
+   
+    bd_subs,compression=False,'mean'
+    cubes=SKY_cubes_extraction_list(files_list_sorted[:3],compression, bd_subs, diff_exptime)
+    science=SKY_cubes_extraction_list(science_files_list ,compression, bd_subs, diff_exptime)
     
-    #print("min/max:",[i/max(flux) for i in flux])
-    """M=np.copy(Matrix)
+    sky=np.nanmean(cubes,axis=0)
+    science=np.nanmean(science,axis=0)
+    
 
-    cor_y, cor_x=np.where(zone==0)
-    for i in range(0,len(cor_y)):
-        M[cor_y[i]][cor_x[i]]=float("nan")
-
-    result = M.flatten()"""
-    return np.nanstd(med1),np.nanstd(M1_s)
- 
+    if diff_exptime:
+        sky=sky*exp_time
 
 
+    for i in range(0,len(cory)):
+        new_sky_pca[cory[i]][corx[i]]=sky[cory[i]][corx[i]]
+        final_pca[cory[i]][corx[i]]=science[cory[i]][corx[i]]-sky[cory[i]][corx[i]]
+    return final_pca,new_sky_pca
 
