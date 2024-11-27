@@ -44,7 +44,7 @@ For efficient PCA bad pixels map should contain bad pixels from all skies (exhau
 
 Launching
 
-To test whether the program runs correctly you should launch the exe file.py. The initial raw file contains around 800 sky files of different exposure time and science files () of exposure time 64 s.
+To test whether the program runs correctly you should launch the exe file.py (launch functions.py before). The initial raw file contains around 800 sky files of different exposure time and science files () of exposure time 64 s.
 
 
 PCA discription
