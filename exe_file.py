@@ -24,12 +24,13 @@ warnings.simplefilter("ignore", category=UserWarning)
 warnings.simplefilter("ignore", category=FutureWarning)
 
 import functions
-from functions import get_bdpx_from_sky, cubes_extraction_ , get_sorted_sky_list , zone_by_integration, SCIENCE_cubes_extraction_list, SKY_cubes_extraction_list,bd_px_subs_nan,bd_px_index, prepare_Mdist_from_raw, create_new_bdpx_map, rename_files
+from functions import badpx_reconstructed_values, get_bdpx_from_sky, cubes_extraction_ , get_sorted_sky_list , zone_by_integration, SCIENCE_cubes_extraction_list, SKY_cubes_extraction_list,bd_px_subs_nan,bd_px_index, prepare_Mdist_from_raw, create_new_bdpx_map, rename_files
 from functions import exe_pca, cubes_extraction_exptime_lin, get_sky_smoothed, get_compressed_matrix_mean, zone_by_dispertion, combine_LR, print_med_tot,collect_header,get_zone2, rescaling, cubes_extraction_exptime, cubes_extraction_all
 
 
 def main():
   
+   
     start_time = time.perf_counter()
 
     header, h_object = collect_header()   # h_objet is object name used for reduced science file name
@@ -42,10 +43,14 @@ def main():
     
     ### extraction of all files placed in raw directory :
     # if sky files should be of the same exposure time as science:
-    #cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_exptime(compression='mean',bd_subs=True)  # cubes: (nb sky, y dim, x dim)   science: ( y dim, x dim)
+    cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_exptime(compression='mean',bd_subs=True)  # cubes: (nb sky, y dim, x dim)   science: ( y dim, x dim)
     
+    #test=badpx_reconstructed_values(np.zeros((1024,2048)), science, cubes)
+    #fits.writeto(os.path.dirname(__file__)+'\\zone\\'+'test_'+'.fits',test,overwrite=True)
+   
+  
     # if sky files of different exposure time should be normalized to the common base:
-    cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_all(compression='mean',bd_subs=True)
+    #cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_all(compression='mean',bd_subs=True)
 
     # Normalisation to the same base by linear regression (in construction):
     #cubes, science, sky_files_list, science_files_list, diff_exptime=cubes_extraction_exptime_lin(compression='mean',bd_subs='yes')
@@ -95,6 +100,9 @@ def main():
     cubes, files_list_sorted=get_sorted_sky_list( cubes, science, zone, sky_files_list, type_eval="square") #type_eval="med"
     print("SKY FILES SORTED: ",files_list_sorted,'\n SCIENCE FILES LIST:', science_files_list)
     
+
+    #t1,t2=badpx_reconstructed_values(np.zeros((1024,2048)), np.zeros((1024,2048)), files_list_sorted, science_files_list, diff_exptime , header['EXPTIME'])
+    
     #################### Vertical rescaling ##########################################################################################
     """nb_sky=4
     print("Used skies (rescaling):",nb_sky)
@@ -143,18 +151,16 @@ def main():
     
     resc_vert = True       # True: reconstructed sky image is rescaled to science column by column.
     margins = True        # True: pca is effectuated on margins area. Otherwise margins are replaced with nans. 
-    mean_n = 5       #number of sky images using for centring science during pc calculation. mean_n>=1
-    select_auto = False      # if True: evaluates what number of sky images used for centring science during pca is optimal 
-    # select_auto : in construction, criterium used in mean_result_files may be insufficient 
+    mean_n = 4       #number of sky images using for centring science during pc calculation. mean_n>=1
     step = 10
     bd_subs = True
     save_ = True
 
     cubes=np.array(cubes[:n_cubes])
   
-    M_1=exe_pca( science, zone, cubes, n_comp, start_x, end_x, start_y, end_y, path_save_sky,
+    M_1=exe_pca( science, zone, cubes, n_comp, files_list_sorted, science_files_list, start_x, end_x, start_y, end_y, path_save_sky,
             path_save_final, header, type_coeff, type_div, n_rect, width_rect ,margins, diff_exptime, 
-            resc_vert, bd_subs, save_, mean_n, select_auto, step)
+            resc_vert, bd_subs, save_, mean_n, step)
     
     end_time = time.perf_counter()
     print("Elapsed time: ", end_time - start_time)
