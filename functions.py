@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from astropy.io import fits as fits
+from datetime import datetime, timedelta
 import astropy
 import plotly.express as px
 
@@ -234,9 +235,114 @@ def print_med_tot(zone, Matrix):
 
 
 ######## EXTRACTION #############################################################################################
+def SKY_cubes_extraction_date():
+    """ Extract sky cubes from the nearest date to the science date.
+    Used for bad pixels replacement in the end of the process. """
+    folder=os.path.dirname(__file__)+'\\raw\\'
+
+    file_list=os.listdir(folder)
+    cubes=[]
+    liste_date= []
+    count=0
+    sky_files_list=[]
+
+    for i in range(0,len(file_list)):  # science exposure time
+        header=fits.getheader(folder+file_list[i])
+        if "ESO DPR TYPE" in list(header.keys()):  
+            if header["ESO DPR TYPE"] =='OBJECT':
+                exp_sc=header['EXPTIME']
+                date_sc=header['DATE']  
+
+    for i in range(0,len(file_list)):
+
+        data=fits.getdata(folder+file_list[i])
+        header=fits.getheader(folder+file_list[i])
+        if "ESO DPR TYPE" in list(header.keys()):
+   
+            if not header["ESO DPR TYPE"] =='OBJECT'  :
+                if exp_sc==header['EXPTIME']:
+                    cubes.append(data)  # raw sky
+                    liste_date.append(header['DATE']) 
+                    sky_files_list.append(file_list[i])                                               #ESO PRO TYPE = 'REDUCED ' pour master sky
+        else:
+            if exp_sc==header['EXPTIME']:
+                cubes.append(data)   # master sky
+                liste_date.append(header['DATE']) 
+                sky_files_list.append(file_list[i])   
+
+    year_month_filtered  = [index for index, date in enumerate(liste_date) if date[:6] == date_sc[:6]] 
+    # same year and month as science
+    year_month_day_filtered = [index for index, date in enumerate(liste_date) if date[:10] == date_sc[:10]]
+    # same year and month and day as science
+
+    time_in_seconds=get_date(date_sc).timestamp()
+    
+    start_range =time_in_seconds - 20 * 60
+    end_range = time_in_seconds + 20 * 60
+    # list of sky cubes taken +/- 20 minutes from science
+    minutes = [index for index, date in enumerate(liste_date) if start_range <= get_date(date).timestamp()<= end_range]
+
+
+    print("SHAPR", cubes[minutes[0]].shape, cubes[year_month_day_filtered[0]].shape, cubes[year_month_filtered[0]].shape)
+    print(len(minutes), len(year_month_filtered), len(year_month_day_filtered))
+
+
+
+    """if len(year_month_filtered)>0:
+        liste=[]
+        for i in year_month_filtered:
+            if len(cubes[i].shape)==3:
+                liste.append(np.mean(cubes[i],axis=0))
+            else:
+                liste.append(cubes[i])
+        
+
+        print(np.array(liste).shape)
+        return np.mean(np.array(liste), axis=0)"""
+    
+    
+    if len(minutes)==1: # on sky taken on the same date
+        return np.mean(np.array(cubes[minutes[0]]),axis=0)#cubes[minutes[0]] #return np.mean(np.array(cubes[minutes[0]]),axis=0)
+    
+    elif len(minutes)>0: 
+        liste=[]
+        for i in minutes:
+            liste.append(cubes[i])
+        return np.mean(np.array(liste), axis=0)
+
+    elif len(year_month_day_filtered)==1:
+        return np.mean(np.array(cubes[year_month_day_filtered[0]]),axis=0) #cubes[year_month_day_filtered[0]]
+    
+    elif len(year_month_day_filtered)>0:
+        liste=[]
+        for i in year_month_day_filtered:
+            liste.append(cubes[i])
+        return np.mean(np.array(liste), axis=0)
+    
+
+    elif len(year_month_filtered)==1:
+        return np.mean(np.array(cubes[year_month_filtered[0]]),axis=0) #cubes[year_month_filtered[0]]
+    
+    elif len(year_month_filtered)>0:
+        liste=[]
+        for i in year_month_filtered:
+            liste.append(cubes[i])
+        return np.mean(np.array(liste), axis=0)
+    
+    
+  
+
+def get_date(date_str):
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f')
+    except ValueError:
+        return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S')
+
+
 
 def cubes_extraction_exptime_lin(compression='mean',bd_subs='no'):
     """
+    A supprimer
     Extract files from the "raw" dierctory. Files should be science files and sky files only. Atribution to science or sky category is 
     effectuated by checking "ESO DPR TYPE" keyword of header (should be "OBJECT" for science). 
 
@@ -461,7 +567,6 @@ def cubes_extraction_all(compression='mean',bd_subs=False):
 
     for j in range(0,len(cubes)):    #compression of sky matrices 
 
-
         if compression=='mean':
             cubes[j]=get_compressed_matrix_mean([cubes[j]])
             cubes[j]=(cubes[j]-sky_pose)/(liste_exp[j]-0.83)
@@ -497,6 +602,7 @@ def cubes_extraction_all(compression='mean',bd_subs=False):
 
 def cubes_extraction_(compression='mean',bd_subs=False):
     """
+    Initial extraction fonction: all sky files are of the same exposure time as science
     Extract files from the "raw" dierctory. Files should be science files and sky files only. Atribution to science or sky category is 
     effectuated by checking "ESO DPR TYPE" keyword of header (should be "OBJECT" for science). 
 
@@ -569,6 +675,7 @@ def cubes_extraction_(compression='mean',bd_subs=False):
 
 def cubes_extraction_exptime(compression='mean',bd_subs=False):
     """
+    Extract only sky files of the same exposure time as science, but sky files of all exposure times can be placed in the same directory. 
     Extract files from the "raw" dierctory. Files should be science files and sky files only (may be of diffrent exposure times). Atribution to science or sky category is 
     effectuated by checking "ESO DPR TYPE" keyword of header (should be "OBJECT" for science). 
 
@@ -659,7 +766,7 @@ def cubes_extraction_exptime(compression='mean',bd_subs=False):
 def SKY_cubes_extraction_list(liste,compression='mean', bd_subs=False, exp_t=False):  #Do not enter bd_subs='yes' for science cubes
     """
     Extract cubes from files which names are registered in the list (files should be placed in the raw directory)
-    To obtain list use first cubes_extraction_
+    To obtain list use first cubes_extraction_ or other function
 
 
     INPUT: compression = 'mean' / 'median'  compression of the cube of each file (not all the cubes from diffrent files)
@@ -792,8 +899,10 @@ def sec_elem(b):
     return b[1]
 
 
-def d_eval( a, b, type_eval,zone):
-    """Evaluates resamblance between matrices by calculating distance metric
+def d_eval( a, b, type_eval, zone):
+    """
+    #A revoir - trouver meilleur critere d'evaluation
+    Evaluates resamblance between matrices by calculating distance metric
     Args:
         a: 2D science image.
         b: 2D sky image.
@@ -815,6 +924,7 @@ def d_eval( a, b, type_eval,zone):
 
     elif type_eval=="square": # list sorted by the sum of squares of pixels values
         res=np.nansum(np.square(M_dist),axis=(0,1))
+        
     
     return  res
 
@@ -830,14 +940,6 @@ def zone_subs(M,zone):
 
     M=np.copy(M)
 
-    """cor_y, cor_x=np.where(zone==0)
-    pos=[]
-    for i in range(0,len(cor_y)):
-            pos.append((cor_y[i],cor_x[i]))
-
-    rows, cols = zip(*pos)
-    M[rows, cols] = float("nan")"""
-    
     cor_y, cor_x = np.where(zone == 0)
     M[cor_y, cor_x] = float("nan")
    
@@ -866,6 +968,7 @@ def get_sorted_sky_list( cubes, science, zone, files_name_list, type_eval="norme
         sky_bg=zone_subs(cubes[i].copy(),zone) 
 
         param=d_eval(science_bg,sky_bg,type_eval,zone)   #calculate value of ressemblance parameter
+        #print(param,files_name_list[i])
 
 
         file_sorted_N.append((cubes[i], param, files_name_list[i])) 
@@ -968,7 +1071,9 @@ def  get_zone1(zone_resc,r,M_dist, edge=40):
 
 
 def zone_by_dispertion(cubes, science, zone_approx, start_x, end_x, start_y, end_y,filt,r_specified=0,  lamb=2.2, n_sky=3):
-    """Determine the star signal zone based on standard deviation criteria.
+    """
+    #A revoir
+    Determinates the star signal zone based on standard deviation criteria.
     Args:
         cubes: 3D array, sky images.
         science: 2D array 
@@ -1117,7 +1222,7 @@ def signal_zone_eval(science,dimy,dimx,larg,limit_deriv,plot_show=False):
 
 
     x,y=larg,larg
-    M_dist_L=create_M_dist(center_x_L,center_y_L,x,y)      #  Można też brać do create_M_dist macierze szablony 
+    M_dist_L=create_M_dist(center_x_L,center_y_L,x,y)    
     M_dist_R=create_M_dist(center_x_R,center_y_R,x,y)
 
     flux_L=[]  # average intensity by a pixel at a given distance from center ??
@@ -1259,8 +1364,6 @@ def rescaling_hor(M_adjust,science,zone,edge=40):
     M_coeff=np.empty((dimx,dimy),dtype=float)
     M_coeff[:]=np.NaN 
 
-      
-
     cor_y, cor_x=np.where(zone==1)   # collect pixels of the background zone only
 
     for i in range(0,len(cor_y)):
@@ -1287,8 +1390,6 @@ def rescaling(M_adjust,science,zone,edge=40):
 
     M_coeff=np.empty((dimx,dimy),dtype=float)
     M_coeff[:]=np.NaN 
-
-      
 
     cor_y, cor_x=np.where(zone==1)   # collect pixels of the background zone only
 
@@ -1317,7 +1418,6 @@ def get_flatten_matrix(matrix,y1,y2,x1,x2):
     M=M[y1:y2]
     M=M.T[x1:x2].T
    
-
     return np.array (M.flatten())
 
 
@@ -1339,14 +1439,14 @@ def compress_flatten(reconstructed,y1,y2,x1,x2):
     return C1
 
 
-def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff,mean_n):  #M_sky (nb sky x nb px)
+def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff, margins=False):  #M_sky (nb sky x nb px)
     """perform PCA
     Args: 
         M_sky: 2D array (y,x) where each line y is a 1D flatten sky and colums x correspondes to pixels indices,
         image_science: 1D array, zone_flat: 1D array,  
         n_comp: number of components used for projection, 
         type_coeff: 'norm'/'mean'/area' : defines procedure of renormalising PC, star zone excluded
-        mean_n: number of the sky images from the sorted list used for centring science 
+       
     Returns:
         reconstructed: 1D reconstructed sky matrix ,
         M_med : coefficient of rescaling forcing 0 median on the background zone (M_med=sky reconstructed/science)
@@ -1410,19 +1510,17 @@ def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff,mean_n):  #M_sky (nb sky
     #print("ALPHA",alpha)
     #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
     image_science_cent= image_science  - alpha * F_mean_sky #centers science (only few first skies are sufficiently compatible to center science on 0)
-
-
     
-    """w= sliding_median(F_mean_science, 5).tolist()
-    liste=[]
-    liste.append(w[0])
-    liste.append(w[0])
-    for i in range(0,len(w)):
-        liste.append(w[i])
-    liste.append(w[-1])
-    liste.append(w[-1])
-    image_science_cent=image_science  - np.array(liste) #centers science (only few first skies are sufficiently compatible to center science on 0)
-    """
+
+    if margins:
+        print("MARGINS")
+        F_mean_science=np.mean(M_sky[:3],axis=0)
+        image_science_cent= image_science  - F_mean_science
+    #usun
+    #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
+    #image_science_cent= image_science  - F_mean_science
+
+   
     cor=np.where(zone_flat==0) # gets coordinates of star zone (pixels to remove)
     try:
         pct=1-len(cor[0])/len(zone_flat)  # gets percent of area optimization zone/total
@@ -1611,7 +1709,7 @@ def merge_sliding_rect(liste,M,width_rect,i):
     return A
 
 
-def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, filt, type_coeff, step, mean_n, margins, path_save='0',resc_rect=False):
+def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, filt, type_coeff, step, margins, path_save='0',resc_rect=False):
     """Calculates principal components on sliding rectangular slices of width width_rect (either left or part of the image K1/K2)
     Rectangles are beeing shifted, each time PCA is calculated for each rectangle. In the end all obtained matrices of differant rectangles configuration are averaged
     INPUT: zone: 2D array , science: 2D array , cubes : 3D skies array, width_rect: width of rectangle in pixels, n_comp: number of PCA components to project on, 
@@ -1682,7 +1780,7 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
             #print("case 1")
             for i_rect in range (0,len(liste_sc)):
       
-                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff, mean_n)#[0]
+                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff )#[0]
                 if not resc_rect:
                     coeff=1
                 liste_fin.append(new* coeff)
@@ -1695,7 +1793,7 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
             #print("case 2")
             liste_fin.append(np.full(liste_sc[0].shape,float("nan")))
             for i_rect in range (1,len(liste_sc)):
-                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff,mean_n)#[0]
+                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff)#[0]
                 if not resc_rect:
                     coeff=1
                 liste_fin.append(new* coeff)
@@ -1707,7 +1805,7 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
         elif liste_sc[0].shape==liste_sc[1].shape and liste_sc[1].shape!=liste_sc[-1].shape:  #PCA is calculated on all the rectangles apart the last (smaller rectangle)
             #print("case 3")
             for i_rect in range (0,len(liste_sc)-1):
-                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff,mean_n)#[0]
+                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff)#[0]
                 if not resc_rect:
                     coeff=1
                 liste_fin.append(new* coeff)
@@ -1721,7 +1819,7 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
             #print("case 4")
             liste_fin.append(np.full(liste_sc[0].shape,float("nan")))
             for i_rect in range (1,len(liste_sc)-1):
-                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff,mean_n)#[0]
+                new,coeff=PCA(cubes_liste[i_rect],liste_sc[i_rect],liste_zone[i_rect],n_comp,type_coeff)#[0]
                 if not resc_rect:
                     coeff=1
                 liste_fin.append(new* coeff)
@@ -1740,15 +1838,17 @@ def pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, en
     #M_sky_combined =  M_sky_combined - alpha * F_mean_sky1[start_y:end_y].T[start_x:end_x].T #usun
 
     if margins: #pca is effectuated independently on marginal area
-        M_sky_combined=margins_pca( M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,start_x,end_x,n_comp,type_coeff, mean_n)
-    else: #marginal area is replaced with nans
+        M_sky_combined=margins_pca( M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,start_x,end_x,n_comp,type_coeff)
+    else: #marginal area is replaced with nans"""
         M_sky_combined=wrap(M_sky_combined,start_x,end_x,start_y,end_y,value="nan")
 
     return M_sky_combined
 
 
 def flatten_margins(M,filt,start_y,end_y,start_x,end_x):
-    """ flatten border region to 1D matrices
+    """
+    A supprimer
+    flatten border region to 1D matrices
     Args: 
         M: 2D array, filt: 'K1'/'K2'
         start_y,end_y,start_x,end_x: integers
@@ -1771,7 +1871,9 @@ def flatten_margins(M,filt,start_y,end_y,start_x,end_x):
 
 
 def compress_margins(M_sky_combined, liste_fin, start_y, end_y, start_x, end_x):
-    """combines reconstructed central area and reconstructed margins
+    """
+    A supprimer
+    combines reconstructed central area and reconstructed margins
     Args:
         M_sky_combined: 2D array, 
         liste_fin: list of 4 1D arrays of margin areas, 
@@ -1804,15 +1906,17 @@ def compress_margins(M_sky_combined, liste_fin, start_y, end_y, start_x, end_x):
     return C1
 
 
-def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,start_x,end_x,n_comp,type_coeff, mean_n):
-    """effectuates pca of margins region. Pca is effectuated independently of the pca of central area.
+def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,start_x,end_x,n_comp,type_coeff):
+    """
+    A supprimer
+    effectuates pca of margins region. Pca is effectuated independently of the pca of central area.
     Args: 
         M_sky_combined: 2D array of the cenral area, zone_t: 2D array, 
         science_t: 2D array, cubes_t: 2D array, filt: 'K1'/'K2', 
         start_y,end_y,start_x,end_x: integers ,
         n_comp: number of used principal components,
         type_coeff: type of method evaluating projection coefficients in pca, 
-        mean_n: number of sky images used for centring science 
+
     Returns: 
         recombined image of reconstructed cenrtral area and margins  """
 
@@ -1829,7 +1933,7 @@ def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,
                 cubes_liste[i].append(rep[i])
 
         for j in range(0,4):
-            new,coeff=PCA( cubes_liste[j], science_liste[j], zone_liste[j], n_comp, type_coeff, mean_n)
+            new,coeff=PCA( cubes_liste[j], science_liste[j], zone_liste[j], n_comp, type_coeff,True)
             liste_fin.append(new*coeff)
 
     elif filt=="K1":
@@ -1850,18 +1954,14 @@ def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,
         for j in range(0,4):
           
             #print(cubes_liste[j][i].shape,science_liste[i].shape)
-            new,coeff=PCA( cubes_liste[j], science_liste[j], zone_liste[j], n_comp, type_coeff, mean_n)
+            new,coeff=PCA( cubes_liste[j], science_liste[j], zone_liste[j], n_comp, type_coeff)
         
             liste_fin.append(new*coeff)
 
 
     margins_comp=compress_margins(M_sky_combined,liste_fin,start_y,end_y,start_x,end_x)
     
-    """margins_K1=compress_margins(liste_fin,start_y,end_y,start_x,end_x)
 
-        margins_K12=combine_LR(margins_K1,margins_K2)
-        fits.writeto('C:/Users/klara/OneDrive/Pulpit/SPH_files/dir/funcs/results/marg.fits',margins_K12,overwrite=True)
-    sys.exi()"""
     
     return margins_comp
 
@@ -1869,7 +1969,7 @@ def margins_pca(M_sky_combined, zone_t, science_t, cubes_t, filt, start_y,end_y,
 
 def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_list, start_x, end_x, 
              start_y, end_y, path_save_sky, path_save_final, header, type_coeff, type_div, n_rect, width_rect, margins, diff_exptime,
-             resc_vert, bd_subs, save_, mean_n, step):
+             resc_vert, bd_subs, save_,step):
     """Executes PCA.  
     Args: science: 2D array, zone : 2D array     cubes_inp: ordered list of sky images (2D arrays) used for PCA
     n_comp: number of components used for projection coefficients calculation
@@ -1893,20 +1993,19 @@ def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_
     resc_vert: True/ False. True: reconstructed sky image is rescaled to science column by column , 
     bd_subs: True/False. True: bad pixels are replaced by nans in the final image, 
     save_: True/False, 
-    mean_n: int, number of sky files used for centring science,
     select_auto=True/False, 
     step=10"""
 
     cubes=cubes_inp.copy()
     ##############################################################
  
-    if type_div=="sliding_rect":
+    if type_div=="sliding_rect": #Pca calculated on the vertical rectangles
         
-        new_sky_pca_L=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K1', type_coeff,step, mean_n, margins, path_save='0', resc_rect=False)
-        new_sky_pca_R=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K2', type_coeff, step,mean_n, margins, path_save='0',resc_rect=False)
+        new_sky_pca_L=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K1', type_coeff,step, margins, path_save='0', resc_rect=False)
+        new_sky_pca_R=pca_sliding_rectangle( zone, science, cubes, width_rect, n_comp, start_x, end_x, start_y, end_y, 'K2', type_coeff, step,margins, path_save='0',resc_rect=False)
 
 
-    else:   #PCA calculated on whole image (1024,1024)
+    else:   #PCA calculated on the whole image (1024,1024)
         sc_K1=get_flatten_matrix(science.T[:1024].T,start_y, end_y, start_x, end_x)
         sc_K2=get_flatten_matrix(science.T[1024:].T,start_y, end_y, start_x, end_x)
 
@@ -1917,10 +2016,10 @@ def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_
         zone_K1=get_flatten_matrix(zone.T[:1024].T,start_y, end_y, start_x, end_x)
         zone_K2=get_flatten_matrix(zone.T[1024:].T,start_y, end_y, start_x, end_x)
 
-        new_sky_pca_L=compress_flatten(PCA(image_matrix_K1,sc_K1,zone_K1,n_comp,type_coeff, mean_n)[0],start_y, end_y, start_x, end_x)
+        new_sky_pca_L=compress_flatten(PCA(image_matrix_K1,sc_K1,zone_K1,n_comp,type_coeff)[0],start_y, end_y, start_x, end_x)
         new_sky_pca_L=wrap(new_sky_pca_L,start_x,end_x,start_y,end_y,value="nan")
         print("PCA K1 done")
-        new_sky_pca_R=compress_flatten(PCA(image_matrix_K2,sc_K2,zone_K2,n_comp,type_coeff, mean_n)[0],start_y, end_y, start_x, end_x)
+        new_sky_pca_R=compress_flatten(PCA(image_matrix_K2,sc_K2,zone_K2,n_comp,type_coeff)[0],start_y, end_y, start_x, end_x)
         new_sky_pca_R=wrap(new_sky_pca_R,start_x,end_x,start_y,end_y,value="nan")
         print("PCA K2 done")
    
@@ -1928,17 +2027,18 @@ def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_
     
     new_sky_pca=combine_LR(new_sky_pca_L,new_sky_pca_R)
     
-    if diff_exptime:
+    if diff_exptime: # if science and sky cubes were normalised to 1s
         new_sky_pca=(header['EXPTIME'])*new_sky_pca #+sky_pose
         science=(header['EXPTIME'])*science #+sky_pose
 
     if resc_vert:
-
-        #If pca was effectuated also on the margins. 
+        """
+        #If pca was effectuated also on the margins.
         A,B,C=np.ones((end_y-start_y,start_x)),np.ones((end_y-start_y,1024-end_x+start_x)),np.ones((end_y-start_y,1024-end_x))
         middle_z=combine_LR(A,combine_LR(zone[start_y:end_y].T[start_x:end_x].T,combine_LR(B,combine_LR(zone[start_y:end_y].T[start_x+1024:end_x+1024].T,C))))
-        zone_resc=np.concatenate((zone[:start_y],middle_z,zone[end_y:]))
-        new_sky_pca=rescaling(new_sky_pca,science,zone_resc,edge=40)
+        zone_resc=np.concatenate((zone[:start_y],middle_z,zone[end_y:]))"""
+
+        new_sky_pca=rescaling(new_sky_pca,science,zone,edge=40) # vertical rescaling
         
         print("Rescaling by vertical coefficients")
 
@@ -1955,8 +2055,10 @@ def exe_pca( science, zone, cubes_inp, n_comp, files_list_sorted, science_files_
         print("bad pixels are not substracted")
 
     
-    #ajouter if 
-    final_pca, new_sky_pca = badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , header['EXPTIME'])
+    #replacmenet of nans by numeric values in bad pixels positions 
+    final_pca, new_sky_pca = badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , header['EXPTIME'],start_x, end_x, 
+            start_y, end_y)
+    
 
     if save_:
         fits.writeto(str(path_save_sky),new_sky_pca,overwrite=True)
@@ -1997,7 +2099,8 @@ def mean_result_files(science,liste_sky,path_save,header=None, bd_subs='yes'):
     return final_pca
     
 
-def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time):
+def badpx_reconstructed_values2(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time, start_x, end_x, 
+             start_y, end_y):
     "science is a matrix of final exptime"
     bd_px_cube=fits.getdata(os.path.dirname(__file__)+'\\bad pixels map\\'+os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\')[0])
     cory,corx=bd_px_index(bd_px_cube)
@@ -2017,5 +2120,161 @@ def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, scienc
     for i in range(0,len(cory)):
         new_sky_pca[cory[i]][corx[i]]=sky[cory[i]][corx[i]]
         final_pca[cory[i]][corx[i]]=science[cory[i]][corx[i]]-sky[cory[i]][corx[i]]
+
+
+    #Margins
+    sky_safe = np.where(sky== 0, np.nan, sky)
+    alpha1=np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1))
+    alpha2=np.nanmean(np.mean( science[:start_y] / sky_safe[:start_y], axis=(0)),axis=0)
+    alpha=np.nanmean([np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
+                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)),
+                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))])
+    
+    print(alpha1,alpha2,alpha, "alphaa")
+    sky2=science-alpha1*sky
+    li_alpha=[np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
+                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)),
+                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))]
+    print(li_alpha)
+    final_pca[:start_y]=science[:start_y]-li_alpha[0]*sky[:start_y]
+    final_pca[end_y:]=science[end_y:]-li_alpha[1]*sky[end_y:]
+    sky2=science-li_alpha[2]*sky
+    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    final_pca=combine_LR(final_pca1,final_pca2)
+    print(final_pca.shape, new_sky_pca.shape)
+    """final_pca[:start_y]=sky2[:start_y]
+    final_pca[end_y:]=sky2[end_y:]
+    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    final_pca=combine_LR(final_pca1,final_pca2)
+    print(final_pca.shape, new_sky_pca.shape)"""
+
+    new_sky_pca[:start_y]=sky2[:start_y]
+    new_sky_pca[end_y:]=sky2[end_y:]
+    new_sky_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(new_sky_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    new_sky_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(new_sky_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    new_sky_pca=combine_LR(new_sky_pca1,new_sky_pca2)
+
+    print(final_pca.shape, new_sky_pca.shape)
+    return final_pca,new_sky_pca
+
+def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time, start_x, end_x, 
+             start_y, end_y):
+    "science is a matrix of final exptime"
+
+    bd_px_cube=fits.getdata(os.path.dirname(__file__)+'\\bad pixels map\\'+os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\')[0])
+    cory,corx=bd_px_index(bd_px_cube) #bad pixels inedexes
+   
+    bd_subs,compression=False,'mean'
+    ######
+    #cubes=SKY_cubes_extraction_date(files_list_sorted[:3],compression, bd_subs, diff_exptime)
+    ######
+    #only 3 first sky will be used for bad pixels and margins replacement 
+    science=SKY_cubes_extraction_list(science_files_list ,compression, bd_subs, diff_exptime)
+
+    sky=SKY_cubes_extraction_date()
+
+    #sky=np.nanmean(cubes,axis=0)
+    science=np.nanmean(science,axis=0)
+    
+
+    #if diff_exptime:
+        #sky=sky*exp_time
+
+
+    for i in range(0,len(cory)): #bad pixels replacement
+        new_sky_pca[cory[i]][corx[i]]=sky[cory[i]][corx[i]] #on remplace les mauvais pixels dans le ciels 
+        final_pca[cory[i]][corx[i]]=science[cory[i]][corx[i]]-sky[cory[i]][corx[i]] #on remplace les mauvais pixels dans la science
+
+    #zobaczyć czy to samo z hd 8 \
+
+    #######remplacement  a couper  #############
+    ###
+    """cubes=SKY_cubes_extraction_list(files_list_sorted[:3],compression, bd_subs, diff_exptime) 
+    sky=np.nanmean(cubes,axis=0)
+    if diff_exptime:
+        sky=sky*exp_time"""
+    # ###########
+
+    #Margins
+    sky_safe = np.where(sky == 0, np.nan, sky) # 0 division
+
+
+
+    #### On ramplace les marges dans la science 
+    """alpha1=np.nanmean( new_sky_pca[:start_y] / sky_safe[:start_y], axis=(0,1))
+    alpha2=np.nanmean(np.mean( science[:start_y] / sky[:start_y], axis=(0)),axis=0)
+    alpha=np.nanmean([np.nanmean( new_sky_pca[:start_y] / sky_safe[:start_y], axis=(0,1)),
+                   np.nanmean( new_sky_pca[end_y:] / sky_safe[end_y:], axis=(0,1)),
+                   np.nanmean( new_sky_pca.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
+                   np.nanmean( new_sky_pca.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
+                   np.nanmean( new_sky_pca.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))])
+    
+    print(alpha1,alpha2,"alphaa")
+    sky2=science-alpha*sky """
+    
+    #fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/a_new_sky.fits',new_sky_pca,overwrite=True)
+    fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/a_sky_safe.fits',sky_safe,overwrite=True)
+    
+
+    # new_sky_pca -> science
+    """li_alpha=[np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
+                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)),
+                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
+                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))]
+    print(li_alpha, "li_apha")
+    final_pca[:start_y]=science[:start_y]-li_alpha[0]*sky[:start_y]
+    final_pca[end_y:]=science[end_y:]-li_alpha[1]*sky[end_y:]
+    sky2=science-li_alpha[2]*sky   #### dopasować dobre czesci 
+    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    sky2=science-li_alpha[3]*sky
+    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    final_pca=combine_LR(final_pca1,final_pca2)"""
+    #####
+
+
+    # new_sky_pca -> science
+    li_alpha=[np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)), #0
+                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)), #1
+                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)), #2
+                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)), #3
+                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))] #4
+    print(li_alpha, "li_apha")
+    final_pca[:start_y]=science[:start_y]-li_alpha[0]*sky[:start_y]
+    final_pca[end_y:]=science[end_y:]-li_alpha[1]*sky[end_y:]
+    sky2=science-li_alpha[2]*sky   #### dopasować dobre czesci 
+    sky3=science-li_alpha[3]*sky 
+    sky4=science-li_alpha[4]*sky 
+    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky3.T[end_x:1024].T))
+    sky2=science-li_alpha[3]*sky
+    final_pca2=combine_LR(sky3.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky4.T[1024+end_x:].T))
+    final_pca=combine_LR(final_pca1,final_pca2)
+    #####
+
+    #### On ramplace les marges dans le ciel
+    new_sky_pca[:start_y]=sky[:start_y]
+    new_sky_pca[end_y:]=sky[end_y:]
+    new_sky_pca1=combine_LR(sky.T[:start_x].T,combine_LR(new_sky_pca.T[start_x:end_x].T,sky.T[end_x:1024].T))
+    new_sky_pca2=combine_LR(sky.T[1024:1024+start_x].T,combine_LR(new_sky_pca.T[1024+start_x:1024+end_x].T,sky.T[1024+end_x:].T))
+    new_sky_pca=combine_LR(new_sky_pca1,new_sky_pca2)
+    """final_pca[:start_y]=sky2[:start_y]
+    final_pca[end_y:]=sky2[end_y:]
+    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    final_pca=combine_LR(final_pca1,final_pca2)
+    print(final_pca.shape, new_sky_pca.shape)"""
+
+    """new_sky_pca[:start_y]=sky2[:start_y]
+    new_sky_pca[end_y:]=sky2[end_y:]
+    new_sky_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(new_sky_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
+    new_sky_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(new_sky_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
+    new_sky_pca=combine_LR(new_sky_pca1,new_sky_pca2)"""
+
     return final_pca,new_sky_pca
 
