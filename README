@@ -19,6 +19,8 @@ Methods (2) and (3) can produce comparable results, depending on the quality of 
 
 Directory structure
 
+All files and folders mentioned below should be present in the same directory.
+
 exe file.py is executing main function which carry out reduction. 
 Code performing rescaling and PCA is included in the main function: main should be modified in order to change the method of reduction. Unused method code is marked with quotes or hashtags.
 
@@ -31,7 +33,7 @@ Two types of sky images can be used: raw sky images or master sky images, obtain
 Further investigation is needed, particularly for images with short exposure times, to determine whether using raw sky images can yield significantly better results compared to master sky images.
 Sky collection should be filtered to exclude images with defects, such as the presence of secondary sources.
 
-The reduced images will be saved in the "results" folder.
+The reduced images will be saved in the "results" folder. 
 
 The pipeline includes creation of 1s and 0s matrix determining the region of star and background signal. This image is saved in the "zone" folder.
 
