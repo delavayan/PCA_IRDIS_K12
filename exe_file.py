@@ -24,7 +24,7 @@ warnings.simplefilter("ignore", category=UserWarning)
 warnings.simplefilter("ignore", category=FutureWarning)
 
 import functions
-from functions import badpx_reconstructed_values, get_bdpx_from_sky, cubes_extraction_ , get_sorted_sky_list , zone_by_integration, SCIENCE_cubes_extraction_list, SKY_cubes_extraction_list,bd_px_subs_nan,bd_px_index, prepare_Mdist_from_raw, create_new_bdpx_map, rename_files
+from functions import badpx_reconstructed_values,SKY_cubes_extraction_date, get_bdpx_from_sky, cubes_extraction_ , get_sorted_sky_list , zone_by_integration, SCIENCE_cubes_extraction_list, SKY_cubes_extraction_list,bd_px_subs_nan,bd_px_index, prepare_Mdist_from_raw, create_new_bdpx_map, rename_files
 from functions import exe_pca, cubes_extraction_exptime_lin, get_sky_smoothed, get_compressed_matrix_mean, zone_by_dispertion, combine_LR, print_med_tot,collect_header,get_zone2, rescaling, cubes_extraction_exptime, cubes_extraction_all
 
 
@@ -39,23 +39,18 @@ def main():
     end_x=901 
     start_y=40  
     end_y=964  
-
     
     ### extraction of all files placed in raw directory :
     # if sky files should be of the same exposure time as science:
     cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_exptime(compression='mean',bd_subs=True)  # cubes: (nb sky, y dim, x dim)   science: ( y dim, x dim)
-    
-    #test=badpx_reconstructed_values(np.zeros((1024,2048)), science, cubes)
-    #fits.writeto(os.path.dirname(__file__)+'\\zone\\'+'test_'+'.fits',test,overwrite=True)
-   
-  
+
     # if sky files of different exposure time should be normalized to the common base:
     #cubes, science, sky_files_list, science_files_list, diff_exptime = cubes_extraction_all(compression='mean',bd_subs=True)
 
     # Normalisation to the same base by linear regression (in construction):
     #cubes, science, sky_files_list, science_files_list, diff_exptime=cubes_extraction_exptime_lin(compression='mean',bd_subs='yes')
  
-    ### extraction with files names lists
+    ### extraction with files names lists: files_list_sorted can be obtained by executing standard extraction and coping printed list
     """files_list_sorted=['sky_27.fits', 'sky_88.fits', 'sky_590.fits', 'sky_257.fits', 'sky_557.fits', 'sky_644.fits', 'sky_357.fits', 'sky_90.fits', 'sky_335.fits', 'sky_660.fits', 'sky_640.fits', 'sky_22.fits', 'sky_457.fits', 'sky_26.fits', 'sky_75.fits', 'sky_20.fits', 'sky_105.fits', 'sky_652.fits', 'sky_468.fits', 'sky_10.fits', 'sky_668.fits', 'sky_423.fits', 'sky_346.fits', 'sky_83.fits', 'sky_24.fits', 'sky_639.fits', 'sky_58.fits', 'sky_179.fits', 'sky_97.fits', 'sky_70.fits', 'sky_401.fits', 'sky_5.fits', 'sky_103.fits', 'sky_157.fits', 'sky_623.fits', 'sky_113.fits', 'sky_501.fits', 'sky_94.fits', 'sky_301.fits', 'sky_98.fits', 'sky_86.fits', 'sky_64.fits', 'sky_645.fits', 'sky_77.fits', 'sky_651.fits', 'sky_646.fits', 'sky_89.fits', 'sky_643.fits', 'sky_25.fits', 'sky_446.fits', 'sky_6.fits', 'sky_312.fits', 'sky_2.fits', 'sky_102.fits', 'sky_29.fits', 
         'sky_235.fits', 'sky_612.fits', 'sky_57.fits', 'sky_17.fits', 'sky_11.fits', 'sky_101.fits', 'sky_80.fits', 'sky_224.fits', 'sky_641.fits', 'sky_16.fits', 'sky_665.fits', 'sky_534.fits', 'sky_479.fits', 'sky_290.fits', 'sky_545.fits', 'sky_35.fits', 'sky_279.fits', 'sky_650.fits', 'sky_33.fits', 'sky_92.fits', 'sky_12.fits', 'sky_135.fits', 'sky_87.fits', 'sky_38.fits', 'sky_19.fits', 
         'sky_653.fits', 'sky_637.fits', 'sky_104.fits', 'sky_96.fits', 'sky_190.fits', 'sky_663.fits', 'sky_13.fits', 'sky_657.fits', 'sky_46.fits', 'sky_490.fits', 'sky_655.fits', 'sky_412.fits', 'sky_642.fits', 'sky_661.fits', 'sky_32.fits', 'sky_656.fits', 'sky_379.fits', 'sky_647.fits', 'sky_30.fits', 'sky_246.fits', 'sky_21.fits', 'sky_124.fits', 'sky_81.fits', 'sky_84.fits', 'sky_666.fits', 'sky_568.fits', 'sky_50.fits', 'sky_168.fits', 'sky_654.fits', 'sky_45.fits', 'sky_223.fits', 'sky_146.fits', 'sky_523.fits', 'sky_201.fits', 'sky_51.fits', 'sky_636.fits', 'sky_268.fits', 'sky_648.fits', 'sky_434.fits', 'sky_85.fits', 'sky_635.fits', 'sky_7.fits', 'sky_445.fits', 'sky_100.fits', 'sky_93.fits', 'sky_601.fits', 'sky_579.fits', 'sky_662.fits', 'sky_9.fits', 'sky_79.fits', 'sky_61.fits', 'sky_659.fits', 'sky_68.fits', 'sky_323.fits', 'sky_669.fits', 'sky_658.fits', 'sky_4.fits', 'sky_8.fits', 'sky_78.fits', 'sky_3.fits', 'sky_39.fits', 'sky_622.fits', 'sky_554.fits', 'sky_95.fits', 'sky_111.fits', 'sky_276.fits', 'sky_536.fits', 'sky_438.fits', 'sky_386.fits', 'sky_114.fits', 'sky_595.fits', 'sky_463.fits', 'sky_297.fits', 'sky_165.fits', 'sky_578.fits', 'sky_397.fits', 'sky_416.fits', 'sky_209.fits', 'sky_270.fits', 'sky_548.fits', 'sky_245.fits', 'sky_594.fits', 'sky_547.fits', 'sky_266.fits', 'sky_119.fits', 'sky_593.fits', 'sky_573.fits', 'sky_196.fits', 'sky_143.fits', 'sky_170.fits', 'sky_162.fits', 'sky_577.fits', 'sky_152.fits', 'sky_271.fits', 'sky_293.fits', 'sky_581.fits', 'sky_194.fits', 'sky_524.fits', 'sky_322.fits', 'sky_204.fits', 'sky_382.fits', 'sky_580.fits', 'sky_368.fits', 'sky_338.fits', 'sky_249.fits', 'sky_561.fits', 'sky_164.fits', 'sky_544.fits', 'sky_559.fits', 'sky_613.fits', 'sky_631.fits', 'sky_203.fits', 'sky_138.fits', 'sky_563.fits', 'sky_315.fits', 'sky_62.fits', 'sky_273.fits', 'sky_495.fits', 'sky_431.fits', 'sky_159.fits', 'sky_160.fits', 'sky_549.fits', 'sky_378.fits', 'sky_232.fits', 'sky_550.fits', 'sky_309.fits', 'sky_188.fits', 'sky_260.fits', 'sky_565.fits', 'sky_429.fits', 'sky_596.fits', 'sky_288.fits', 'sky_155.fits', 'sky_474.fits', 'sky_163.fits', 'sky_633.fits', 'sky_144.fits', 'sky_624.fits', 'sky_500.fits', 'sky_543.fits', 'sky_592.fits', 'sky_605.fits', 'sky_365.fits', 'sky_202.fits', 'sky_117.fits', 'sky_110.fits', 'sky_219.fits', 'sky_175.fits', 'sky_200.fits', 'sky_220.fits', 'sky_571.fits', 'sky_477.fits', 'sky_277.fits', 'sky_329.fits', 'sky_496.fits', 'sky_173.fits', 'sky_494.fits', 'sky_487.fits', 'sky_511.fits', 'sky_462.fits', 'sky_177.fits', 'sky_265.fits', 'sky_411.fits', 'sky_363.fits', 'sky_350.fits', 'sky_358.fits', 'sky_402.fits', 'sky_562.fits', 'sky_600.fits', 'sky_421.fits', 'sky_14.fits', 'sky_15.fits', 'sky_606.fits', 'sky_63.fits', 'sky_76.fits', 'sky_464.fits', 'sky_55.fits', 'sky_43.fits', 'sky_47.fits', 'sky_41.fits', 'sky_0.fits', 'sky_56.fits', 'sky_49.fits', 'sky_91.fits', 'sky_634.fits', 'sky_18.fits', 'sky_512.fits', 'sky_1.fits', 'sky_649.fits', 'sky_334.fits', 'sky_54.fits', 'sky_65.fits', 'sky_31.fits', 'sky_466.fits', 'sky_74.fits', 'sky_53.fits', 'sky_44.fits', 'sky_73.fits', 'sky_667.fits', 'sky_71.fits', 'sky_638.fits', 'sky_52.fits', 'sky_72.fits', 'sky_99.fits', 'sky_66.fits', 'sky_212.fits', 'sky_67.fits', 'sky_390.fits', 'sky_60.fits', 'sky_69.fits', 'sky_42.fits', 'sky_48.fits', 'sky_23.fits', 'sky_37.fits', 'sky_82.fits', 'sky_664.fits', 'sky_556.fits', 'sky_40.fits', 'sky_242.fits', 'sky_141.fits', 'sky_120.fits', 'sky_417.fits', 'sky_247.fits', 'sky_28.fits', 'sky_521.fits', 'sky_34.fits', 'sky_112.fits', 'sky_618.fits', 'sky_115.fits', 'sky_36.fits', 'sky_560.fits', 'sky_59.fits', 'sky_142.fits', 'sky_611.fits', 'sky_369.fits', 'sky_370.fits', 'sky_310.fits', 'sky_118.fits', 'sky_507.fits', 'sky_538.fits', 'sky_364.fits', 'sky_193.fits', 'sky_597.fits', 'sky_558.fits', 'sky_253.fits', 'sky_498.fits', 'sky_441.fits', 'sky_251.fits', 'sky_254.fits', 'sky_108.fits', 'sky_629.fits', 'sky_227.fits', 'sky_214.fits', 
@@ -72,7 +67,7 @@ def main():
 
 
     ### Zone evaluation ###################################################################################################
-    #if zone is already saved: enter file name
+    #if zone is already saved: enter file name and put the code below in a comment
     #zone=fits.getdata('C:/Users/klara/OneDrive/Pulpit/SPH_files/dir 2/PCA_K12/zone/ZONE_V AB Aur_363_290.fits')
                       #ZONE_HD 83443_283_218.fits')
                       #ZONE_HD 147911_292_225.fits')
@@ -85,12 +80,12 @@ def main():
     print(files_list_sorted_approx)
     
   
-    #precise zone approximation
+    # precise zone approximation
     zone_L,r_L=zone_by_dispertion(cubes_approx, science, zone_approx, start_x, end_x, start_y, end_y,"K1", lamb=2.1)
     r_R_specified=r_L*0.8  # as K2 center star zone obtained with is zone_by_dispertion usually too big r_R is specified as a fraction of K1 circle zone
     zone_R, r_R=zone_by_dispertion(cubes_approx, science, zone_approx, start_x, end_x, start_y, end_y,"K2", r_R_specified, lamb=2.2)
 
-    zone=combine_LR(zone_L,zone_R) #glues two matrices horizontaly
+    zone=combine_LR(zone_L,zone_R) # glues two matrices horizontaly
     fits.writeto(os.path.dirname(__file__)+'\\zone\\'+'ZONE_'+h_object+'_'+str(int(r_L))+'_'+str(int(r_R))+'.fits',zone,overwrite=True)
    
 
@@ -99,9 +94,6 @@ def main():
     #Final sorting of sky files
     cubes, files_list_sorted=get_sorted_sky_list( cubes, science, zone, sky_files_list, type_eval="square") #type_eval="med"
     print("SKY FILES SORTED: ",files_list_sorted,'\n SCIENCE FILES LIST:', science_files_list)
-    
-
-    #t1,t2=badpx_reconstructed_values(np.zeros((1024,2048)), np.zeros((1024,2048)), files_list_sorted, science_files_list, diff_exptime , header['EXPTIME'])
     
     #################### Vertical rescaling ##########################################################################################
     """nb_sky=4
@@ -141,7 +133,7 @@ def main():
 
     n_comp=2 # 2/3
 
-    type_div="sliding_rect"  # Divison type: "sliding rect" "rectangle", "triangle" , "rectangle hor", else ('0'): PCA on the whole image
+    type_div="sliding_rect"  # Divison type: "sliding rect" "rectanglle", "triangle" , "rectangle hor", else ('0'): PCA on the whole image
     n_rect=22  # important only if type_div="rectangle"/"rectangle hor",    n_rect must be a divisor of end_x-start_x
     type_coeff="mean" # "norm" , "mean", "area"
     width_rect=90 # important only if type_div="sliding rect" . number of pixels of single rectangle width
@@ -150,8 +142,7 @@ def main():
     path_save_final=os.path.dirname(__file__)+'\\results\\'+'REDUCED SCIENCE__ '+h_object+'_'+type_div+'_'+str(n_rect)+"_c nb_"+str(n_cubes)+"_n comp_"+str(n_comp)+'_'+str(width_rect)+'.fits'
     
     resc_vert = True       # True: reconstructed sky image is rescaled to science column by column.
-    margins = True        # True: pca is effectuated on margins area. Otherwise margins are replaced with nans. 
-    mean_n = 4       #number of sky images using for centring science during pc calculation. mean_n>=1
+    margins = False        # Should be False. (a supprimer)  
     step = 10
     bd_subs = True
     save_ = True
@@ -160,7 +151,7 @@ def main():
   
     M_1=exe_pca( science, zone, cubes, n_comp, files_list_sorted, science_files_list, start_x, end_x, start_y, end_y, path_save_sky,
             path_save_final, header, type_coeff, type_div, n_rect, width_rect ,margins, diff_exptime, 
-            resc_vert, bd_subs, save_, mean_n, step)
+            resc_vert, bd_subs, save_, step)
     
     end_time = time.perf_counter()
     print("Elapsed time: ", end_time - start_time)
