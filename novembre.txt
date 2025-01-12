@@ -5,8 +5,9 @@ Mise dans la même base:
   On pourrait créer des cartes qui incluent les mauvais pixels des temps supérieurs  
   ex. Pour la science de 64s: carte obtenue en combinant les cartes de 64s et 96s.
 
-Gestion de mauvais pixels:
-  - remplaces les mauvais pixels dans l'image réduit par les mauvais pixels de ( science - moyenne des ciels les plus proches )
+Gestion de mauvais pixels (je m'en occupe):
+  - remplaces les mauvais pixels dans l'image réduit par les mauvais pixels de ( science - moyenne des ciels les plus proches). Supprimer ancien code des marges.
+
 
 Centrage science pendant pca:
   - Critère actuel (nombre de sky n est tel que:  std dev (médianes des carrés 50x50px d'image finale obtenu avec n sky) * 1.8 < std dev (médianes des carrés 50x50px d'image finale obtenu avec n+1 sky) . 
