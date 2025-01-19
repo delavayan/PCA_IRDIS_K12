@@ -1505,12 +1505,14 @@ def PCA(M_sky,image_science,zone_flat,n_comp,type_coeff, margins=False):  #M_sky
     #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
     #image_science_cent=image_science  - F_mean_science #centers science (only few first skies are sufficiently compatible to center science on 0)
 
-    
+    # centring by all sky images, REPLACE recentring science in the end ( reconstructed = ) with F_mean_sky 
     alpha=np.nanmean( image_science / F_mean_sky )
-    #print("ALPHA",alpha)
-    #F_mean_science=np.mean(M_sky[:mean_n],axis=0) #centering with 1 sky: M_sky[:1]
     image_science_cent= image_science  - alpha * F_mean_sky #centers science (only few first skies are sufficiently compatible to center science on 0)
-    
+
+    # centring by few skies, REPLACE recentring science in the end ( reconstructed = ) with F_mean_few
+    #F_mean_few=np.mean(M_sky[:4],axis=0) #
+    #image_science_cent = image_science  - F_mean_few
+   
 
     if margins:
         print("MARGINS")
@@ -2099,69 +2101,7 @@ def mean_result_files(science,liste_sky,path_save,header=None, bd_subs='yes'):
     return final_pca
     
 
-def badpx_reconstructed_values2(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time, start_x, end_x, 
-             start_y, end_y):
-    "science is a matrix of final exptime"
-    bd_px_cube=fits.getdata(os.path.dirname(__file__)+'\\bad pixels map\\'+os.listdir(os.path.dirname(__file__)+'\\bad pixels map\\')[0])
-    cory,corx=bd_px_index(bd_px_cube)
-   
-    bd_subs,compression=False,'mean'
-    cubes=SKY_cubes_extraction_list(files_list_sorted[:3],compression, bd_subs, diff_exptime)
-    science=SKY_cubes_extraction_list(science_files_list ,compression, bd_subs, diff_exptime)
-    
-    sky=np.nanmean(cubes,axis=0)
-    science=np.nanmean(science,axis=0)
-    
 
-    if diff_exptime:
-        sky=sky*exp_time
-
-
-    for i in range(0,len(cory)):
-        new_sky_pca[cory[i]][corx[i]]=sky[cory[i]][corx[i]]
-        final_pca[cory[i]][corx[i]]=science[cory[i]][corx[i]]-sky[cory[i]][corx[i]]
-
-
-    #Margins
-    sky_safe = np.where(sky== 0, np.nan, sky)
-    alpha1=np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1))
-    alpha2=np.nanmean(np.mean( science[:start_y] / sky_safe[:start_y], axis=(0)),axis=0)
-    alpha=np.nanmean([np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
-                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)),
-                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
-                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
-                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))])
-    
-    print(alpha1,alpha2,alpha, "alphaa")
-    sky2=science-alpha1*sky
-    li_alpha=[np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
-                   np.nanmean( science[end_y:] / sky_safe[end_y:], axis=(0,1)),
-                   np.nanmean( science.T[:start_x].T / sky_safe.T[:start_x].T, axis=(0,1)),
-                   np.nanmean( science.T[end_x:1024+start_x].T / sky_safe.T[end_x:1024+start_x].T, axis=(0,1)),
-                   np.nanmean( science.T[end_x+1024:].T / sky_safe.T[end_x+1024:].T, axis=(0,1))]
-    print(li_alpha)
-    final_pca[:start_y]=science[:start_y]-li_alpha[0]*sky[:start_y]
-    final_pca[end_y:]=science[end_y:]-li_alpha[1]*sky[end_y:]
-    sky2=science-li_alpha[2]*sky
-    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
-    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
-    final_pca=combine_LR(final_pca1,final_pca2)
-    print(final_pca.shape, new_sky_pca.shape)
-    """final_pca[:start_y]=sky2[:start_y]
-    final_pca[end_y:]=sky2[end_y:]
-    final_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(final_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
-    final_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(final_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
-    final_pca=combine_LR(final_pca1,final_pca2)
-    print(final_pca.shape, new_sky_pca.shape)"""
-
-    new_sky_pca[:start_y]=sky2[:start_y]
-    new_sky_pca[end_y:]=sky2[end_y:]
-    new_sky_pca1=combine_LR(sky2.T[:start_x].T,combine_LR(new_sky_pca.T[start_x:end_x].T,sky2.T[end_x:1024].T))
-    new_sky_pca2=combine_LR(sky2.T[1024:1024+start_x].T,combine_LR(new_sky_pca.T[1024+start_x:1024+end_x].T,sky2.T[1024+end_x:].T))
-    new_sky_pca=combine_LR(new_sky_pca1,new_sky_pca2)
-
-    print(final_pca.shape, new_sky_pca.shape)
-    return final_pca,new_sky_pca
 
 def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, science_files_list, diff_exptime , exp_time, start_x, end_x, 
              start_y, end_y):
@@ -2218,9 +2158,7 @@ def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, scienc
     print(alpha1,alpha2,"alphaa")
     sky2=science-alpha*sky """
     
-    #fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/a_new_sky.fits',new_sky_pca,overwrite=True)
-    fits.writeto('c:/Users/klara/OneDrive/Pulpit/Stage fits/AB auriga/RES DLA P/a_sky_safe.fits',sky_safe,overwrite=True)
-    
+ 
 
     # new_sky_pca -> science
     """li_alpha=[np.nanmean( science[:start_y] / sky_safe[:start_y], axis=(0,1)),
@@ -2277,4 +2215,3 @@ def badpx_reconstructed_values(final_pca, new_sky_pca, files_list_sorted, scienc
     new_sky_pca=combine_LR(new_sky_pca1,new_sky_pca2)"""
 
     return final_pca,new_sky_pca
-
